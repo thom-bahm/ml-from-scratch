@@ -1,0 +1,88 @@
+# Existing entries
+*.gz
+__pycache__/
+mlp/data/
+*/data/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Model files and checkpoints
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.pickle
+*.joblib
+*.model
+checkpoints/
+*/checkpoints/
+models/
+*/models/
+weights/
+*/weights/
+
+# Dataset directories (general patterns)
+datasets/
+*/datasets/
+data/
+*/data/
+raw_data/
+*/raw_data/
+
+# Large files and caches
+*.npy
+*.npz
+cache/
+*/cache/
+.cache/
+*/.cache/
+
+# Logs and outputs
+logs/
+*/logs/
+outputs/
+*/outputs/
+runs/
+*/runs/
+wandb/
+*/wandb/
+tensorboard_logs/
+*/tensorboard_logs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
