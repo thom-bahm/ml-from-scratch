@@ -5,6 +5,7 @@ from tqdm import trange
 import data_utils as du
 from torch import nn, optim
 import torch.nn.functional as F
+from datetime import datetime, timezone
 
 from test import test_model
 from train import train_epoch
@@ -77,11 +78,9 @@ if __name__ == '__main__':
         
     print("Final Accuracy: %.2f%%" % acc)
 
-    images, labels = next(iter(train_loader))
-    x = model(images.to(device))
-    plt.title("Scatterplot for images?")
-    plt.scatter(np.arange(10), F.softmax(x, 1)[0].detach().cpu().numpy())
-    plt.show()
+    save_path = f'mnist_mlp_weights_{datetime.now(timezone.utc)}.pth'
+    torch.save(model.state_dict(), save_path)
+    print(f"Model weights saved to '{save_path}'")
 
     plt.title('Train Loss')
     plt.xlabel('Epoch Number')
