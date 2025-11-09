@@ -76,15 +76,24 @@ class MultiHeadSelfAttention(nn.Module):
 class MLP(nn.Module):
     def __init__(self, embed_dim, mlp_size, dropout=0.1):
         # TODO: First linear layer
+        self.fc1 = nn.Linear(embed_dim, mlp_size)
         # TODO: GELU activation
+        self.gelu = nn.GELU()
         # TODO: Dropout
+        self.dropout1 = nn.Dropout(dropout)
         # TODO: Second linear layer
+        self.fc2 = nn.Linear(mlp_size, embed_dim)
         # TODO: Dropout
-        pass
+        self.dropout2 = nn.Dropout(dropout)
     
     def forward(self, x):
         # TODO: Pass through layers
-        pass
+        x = self.fc1(x)
+        x = self.gelu(x)
+        x = self.dropout1(x)
+        x = self.fc2(x)
+        x = self.dropout2(x)
+        return x
 
 class TransformerBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, mlp_size, dropout=0.1):
