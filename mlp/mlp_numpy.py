@@ -108,8 +108,9 @@ class MLP_Numpy:
         Hint: Use np.exp(), np.sum() with appropriate axis
         """
         probs = []
-        for z_i in Z:
-            probs.append(np.exp(z_i) / sum(np.exp(z_j) for z_j in Z))
+        Z_shifted = Z - np.max(Z, axis=0, keepdims=True)
+        exp_Z = np.exp(Z_shifted)
+        probs = exp_Z / np.sum(exp_Z, axis=0, keepdims=True)
         return probs
     
     def forward(self, X: np.ndarray) -> Tuple[np.ndarray, dict]:
@@ -143,8 +144,19 @@ class MLP_Numpy:
         # TODO: Forward pass through all layers
         # For layers 1 to num_layers-1, use ReLU
         # For the last layer, use softmax
-        
-        pass
+        for l in range(self.num_layers):
+            Z = self.weights[l] @ A + self.biases[l]
+            cache[f'Z{l+1}'] = Z
+            
+            if l == self.num_layers - 1:
+                # Output layer with softmax
+                A = self.softmax(Z)
+            else:
+                # Hidden layers with ReLU
+                A = self.relu(Z)
+            
+            cache[f'A{l+1}'] = A
+        return A, cache
     
     def backward(self, Y: np.ndarray, cache: dict) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
