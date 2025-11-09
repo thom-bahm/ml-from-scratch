@@ -13,8 +13,8 @@ import time
 from pathlib import Path
 
 from model import VisionTransformer
-from data_loader import get_mnist_loaders
-from config import config
+from data_loader import get_data_loaders
+from config import get_config, CONFIG_REGISTRY
 
 
 def get_lr_scheduler(optimizer, config, num_batches):
@@ -143,9 +143,15 @@ def validate(model, test_loader, criterion, device):
 
 
 def save_checkpoint(model, optimizer, epoch, train_acc, val_acc, config, is_best=False):
-    """Save model checkpoint."""
-    checkpoint_dir = Path(config.checkpoint_dir)
-    checkpoint_dir.mkdir(exist_ok=True)
+    """
+    Save model checkpoint with organized directory structure.
+    Creates a folder with dataset name and config name.
+    """
+    # Create organized checkpoint directory
+    # Format: checkpoints/{dataset}_{config_name}/
+    checkpoint_base = Path(config.checkpoint_dir)
+    run_dir = checkpoint_base / f"{config.dataset}_{config.name}"
+    run_dir.mkdir(parents=True, exist_ok=True)
     
     checkpoint = {
         'epoch': epoch,
@@ -153,19 +159,24 @@ def save_checkpoint(model, optimizer, epoch, train_acc, val_acc, config, is_best
         'optimizer_state_dict': optimizer.state_dict(),
         'train_acc': train_acc,
         'val_acc': val_acc,
-        'config': config
+        'config': config.to_dict()  # Save config as dict
     }
     
     # Save regular checkpoint
-    checkpoint_path = checkpoint_dir / f'checkpoint_epoch_{epoch+1}.pth'
+    checkpoint_path = run_dir / f'checkpoint_epoch_{epoch+1}.pth'
     torch.save(checkpoint, checkpoint_path)
     print(f"Checkpoint saved: {checkpoint_path}")
     
     # Save best model
     if is_best:
-        best_path = checkpoint_dir / 'best_model.pth'
+        best_path = run_dir / 'best_model.pth'
         torch.save(checkpoint, best_path)
         print(f"Best model saved: {best_path}")
+    
+    # Save config separately for easy reference
+    config_path = run_dir / 'config.txt'
+    with open(config_path, 'w') as f:
+        f.write(str(config))
 
 
 def train_vit(config):
@@ -189,7 +200,7 @@ def train_vit(config):
     
     # Create data loaders
     print("Loading data...")
-    train_loader, test_loader = get_mnist_loaders(config)
+    train_loader, test_loader = get_data_loaders(config)
     
     # Create model
     print("\nCreating model...")
@@ -271,4 +282,39 @@ def train_vit(config):
 
 
 if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Train Vision Transformer')
+    parser.add_argument(
+        '--config', 
+        type=str, 
+        default='mnist',
+        choices=list(CONFIG_REGISTRY.keys()),
+        help=f'Configuration to use. Options: {list(CONFIG_REGISTRY.keys())}'
+    )
+    parser.add_argument('--batch-size', type=int, default=None, help='Override batch size')
+    parser.add_argument('--epochs', type=int, default=None, help='Override number of epochs')
+    parser.add_argument('--lr', type=float, default=None, help='Override learning rate')
+    parser.add_argument('--device', type=str, default=None, help='Override device (cuda/cpu)')
+    
+    args = parser.parse_args()
+    
+    # Get configuration
+    config = get_config(args.config)
+    
+    # Override config with command line arguments if provided
+    if args.batch_size is not None:
+        config.batch_size = args.batch_size
+        print(f"Overriding batch size: {config.batch_size}")
+    if args.epochs is not None:
+        config.epochs = args.epochs
+        print(f"Overriding epochs: {config.epochs}")
+    if args.lr is not None:
+        config.learning_rate = args.lr
+        print(f"Overriding learning rate: {config.learning_rate}")
+    if args.device is not None:
+        config.device = args.device
+        print(f"Overriding device: {config.device}")
+    
+    print(f"\nStarting training with config: {args.config}")
     train_vit(config)

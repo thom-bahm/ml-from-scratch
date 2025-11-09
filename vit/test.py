@@ -11,45 +11,51 @@ import numpy as np
 from pathlib import Path
 
 from model import VisionTransformer
-from data_loader import get_mnist_loaders
-from config import config
+from data_loader import get_data_loaders
+from config import get_config
 
 
-def load_model(checkpoint_path, config, device):
+def load_model(checkpoint_path, device):
     """
     Load a trained model from checkpoint.
+    Auto-detects configuration from checkpoint.
     
     Args:
         checkpoint_path: Path to checkpoint file
-        config: Configuration object
         device: Device to load model on
     
     Returns:
         model: Loaded model
         checkpoint: Checkpoint dictionary with training info
+        config_dict: Configuration dictionary
     """
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    config_dict = checkpoint['config']
+    
+    # Reconstruct model from saved config
     model = VisionTransformer(
-        img_size=config.img_size,
-        patch_size=config.patch_size,
-        in_channels=config.in_channels,
-        num_classes=config.num_classes,
-        embed_dim=config.embed_dim,
-        num_layers=config.num_layers,
-        num_heads=config.num_heads,
-        mlp_size=config.mlp_size,
+        img_size=config_dict['img_size'],
+        patch_size=config_dict['patch_size'],
+        in_channels=config_dict['in_channels'],
+        num_classes=config_dict['num_classes'],
+        embed_dim=config_dict['embed_dim'],
+        num_layers=config_dict['num_layers'],
+        num_heads=config_dict['num_heads'],
+        mlp_size=config_dict['mlp_size'],
         dropout=0.0  # No dropout for inference
     ).to(device)
     
-    checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     
     print(f"Model loaded from: {checkpoint_path}")
+    print(f"Dataset: {config_dict.get('dataset', 'unknown')}")
+    print(f"Config: {config_dict.get('name', 'unknown')}")
     print(f"Trained for {checkpoint['epoch']+1} epochs")
     print(f"Train accuracy: {checkpoint['train_acc']:.2f}%")
     print(f"Val accuracy: {checkpoint['val_acc']:.2f}%")
     
-    return model, checkpoint
+    return model, checkpoint, config_dict
 
 
 def evaluate_model(model, test_loader, device):
@@ -173,24 +179,33 @@ def plot_confusion_matrix(confusion_matrix, save_path='confusion_matrix.png'):
     plt.close()
 
 
-def test_model(checkpoint_path='./checkpoints/best_model.pth'):
+def test_model(checkpoint_path='./checkpoints/best_model.pth', config_name=None):
     """
     Main testing function.
     
     Args:
         checkpoint_path: Path to model checkpoint
+        config_name: Optional config name to load data (auto-detected from checkpoint if None)
     """
     # Setup device
-    device = torch.device(config.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}\n")
     
-    # Load data
-    print("Loading test data...")
-    _, test_loader = get_mnist_loaders(config)
+    # Load model (config is extracted from checkpoint)
+    print("Loading model...")
+    model, checkpoint, config_dict = load_model(checkpoint_path, device)
     
-    # Load model
-    print("\nLoading model...")
-    model, checkpoint = load_model(checkpoint_path, config, device)
+    # Get config for data loading (either from arg or checkpoint)
+    if config_name is not None:
+        config = get_config(config_name)
+    else:
+        # Use dataset from checkpoint to get appropriate config
+        dataset = config_dict.get('dataset', 'mnist')
+        config = get_config(dataset)
+    
+    # Load data
+    print("\nLoading test data...")
+    _, test_loader = get_data_loaders(config)
     
     # Evaluate
     print("\nEvaluating model on test set...")
@@ -218,13 +233,36 @@ def test_model(checkpoint_path='./checkpoints/best_model.pth'):
 
 if __name__ == "__main__":
     import sys
+    import argparse
     
-    # Allow custom checkpoint path as command line argument
-    checkpoint_path = sys.argv[1] if len(sys.argv) > 1 else './checkpoints/best_model.pth'
+    parser = argparse.ArgumentParser(description='Test Vision Transformer')
+    parser.add_argument(
+        '--checkpoint',
+        type=str,
+        default='./checkpoints/mnist_vit_tiny_mnist/best_model.pth',
+        help='Path to checkpoint file'
+    )
+    parser.add_argument(
+        '--config',
+        type=str,
+        default=None,
+        help='Override config for data loading (auto-detected from checkpoint if not specified)'
+    )
     
-    if not Path(checkpoint_path).exists():
-        print(f"Error: Checkpoint not found at {checkpoint_path}")
-        print("Train a model first using: python train.py")
+    args = parser.parse_args()
+    
+    if not Path(args.checkpoint).exists():
+        print(f"Error: Checkpoint not found at {args.checkpoint}")
+        print("\nAvailable checkpoints:")
+        checkpoint_base = Path('./checkpoints')
+        if checkpoint_base.exists():
+            for subdir in checkpoint_base.iterdir():
+                if subdir.is_dir():
+                    best_model = subdir / 'best_model.pth'
+                    if best_model.exists():
+                        print(f"  {best_model}")
+        else:
+            print("  No checkpoints found. Train a model first using: python train.py")
         sys.exit(1)
     
-    test_model(checkpoint_path)
+    test_model(args.checkpoint, args.config)
