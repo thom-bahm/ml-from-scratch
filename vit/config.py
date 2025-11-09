@@ -138,8 +138,8 @@ class ViTCIFAR10(ViTConfig):
         self.dropout = 0.1
         
         # Training Hyperparameters
-        self.batch_size = 128       # CIFAR is more complex
-        self.learning_rate = 3e-4
+        self.batch_size = 256       # CIFAR is more complex
+        self.learning_rate = 6e-4
         self.weight_decay = 0.05    # More regularization
         self.epochs = 200           # CIFAR needs more training
         
