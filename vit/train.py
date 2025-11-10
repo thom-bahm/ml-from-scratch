@@ -11,6 +11,8 @@ from tqdm import tqdm
 import os
 import time
 from pathlib import Path
+import csv
+from datetime import datetime
 
 from model import VisionTransformer
 from data_loader import get_data_loaders
@@ -198,6 +200,21 @@ def train_vit(config):
     
     print("\n" + str(config) + "\n")
     
+    # Setup logging directory
+    log_dir = Path(config.log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create log file with timestamp and config name
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = log_dir / f"{config.dataset}_{config.name}_{timestamp}.csv"
+    
+    # Initialize CSV log file
+    with open(log_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc', 'learning_rate', 'time_elapsed'])
+    
+    print(f"Logging training metrics to: {log_file}\n")
+    
     # Create data loaders
     print("Loading data...")
     train_loader, test_loader = get_data_loaders(config)
@@ -242,6 +259,8 @@ def train_vit(config):
     start_time = time.time()
     
     for epoch in range(config.epochs):
+        epoch_start_time = time.time()
+        
         # Warmup learning rate for first few epochs
         if epoch < config.warmup_epochs:
             lr = config.learning_rate * (epoch + 1) / config.warmup_epochs
@@ -260,11 +279,29 @@ def train_vit(config):
         if scheduler is not None and epoch >= config.warmup_epochs:
             scheduler.step()
         
+        # Calculate elapsed time for this epoch
+        epoch_time = time.time() - epoch_start_time
+        total_elapsed = time.time() - start_time
+        
         # Print epoch summary
         print(f"\nEpoch {epoch+1}/{config.epochs} Summary:")
         print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
         print(f"  Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%")
         print(f"  Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
+        print(f"  Epoch Time: {epoch_time:.2f}s | Total Time: {total_elapsed/60:.2f}m")
+        
+        # Log metrics to CSV
+        with open(log_file, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                epoch + 1,
+                f"{train_loss:.6f}",
+                f"{train_acc:.4f}",
+                f"{val_loss:.6f}",
+                f"{val_acc:.4f}",
+                f"{optimizer.param_groups[0]['lr']:.8f}",
+                f"{total_elapsed:.2f}"
+            ])
         
         # Save checkpoint
         is_best = val_acc > best_val_acc
